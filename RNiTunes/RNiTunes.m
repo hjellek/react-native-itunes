@@ -8,15 +8,105 @@
 
 #import "RNiTunes.h"
 #import <MediaPlayer/MediaPlayer.h>
+#import <AVFoundation/AVMetadataFormat.h>
+#import <AVFoundation/AVTimedMetadataGroup.h>
 #import <React/RCTConvert.h>
 
 @interface RNiTunes()
-
+@property (nonatomic, strong) MPMusicPlayerController *player;
+@property (nonatomic, strong) NSTimer *currentTimer;
+@property (nonatomic, assign) NSInteger currentPlaybackState;
 @end
 
 @implementation RNiTunes
 {
 
+}
+
+- (id) init
+{
+    self = [super init];
+    if (self!=nil) {
+        NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+        self.player = [MPMusicPlayerController applicationMusicPlayer];
+
+        NSLog(@"registering MPMusicPlayerController Notifications");
+
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handle_itemChanged)
+                                                     name:MPMusicPlayerControllerNowPlayingItemDidChangeNotification
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handle_stateChanged)
+                                                     name:MPMusicPlayerControllerPlaybackStateDidChangeNotification
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handle_volumeChanged)
+                                                     name:MPMusicPlayerControllerVolumeDidChangeNotification
+                                                   object:nil];
+
+        NSLog(@"turning on player notifications");
+        [self.player beginGeneratingPlaybackNotifications];
+    }
+    return self;
+}
+
++(bool)requiresMainQueueSetup {
+    return NO;
+}
+
+-(void)handle_itemChanged
+{
+    NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    MPMediaItem *item = [self.player nowPlayingItem];
+    [self sendEventWithName:@"itemPlayingChanged" body:@{
+            @"track": [self audioBookAsJSON:item]
+    }];
+}
+
+-(void)handle_stateChanged
+{
+    NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    MPMusicPlaybackState state = [self.player playbackState];
+    [self sendEventWithName:@"playbackStateChanged" body:@{
+            @"playbackState": @(state)
+    }];
+    if(self.currentTimer && self.currentPlaybackState == MPMusicPlaybackStatePlaying && state != MPMusicPlaybackStatePlaying)
+    {
+        [self.currentTimer invalidate];
+        self.currentTimer = nil;
+        NSLog(@"Stopped position timer");
+    }
+    else if(!self.currentTimer && state == MPMusicPlaybackStatePlaying)
+    {
+        self.currentTimer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(onTimer:) userInfo:nil repeats:YES];
+        NSLog(@"Started position timer");
+    }
+    self.currentPlaybackState = [[NSNumber numberWithInt:state] intValue];
+}
+
+-(void)handle_volumeChanged
+{
+    NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    float volume = [self.player volume];
+    [self sendEventWithName:@"volumeChanged" body:@{
+            @"volume": @(volume)
+    }];
+}
+
+- (void)onTimer:(NSTimer *)timer {
+    [self sendEventWithName:@"positionChanged" body:@{
+            @"position": @(self.player.currentPlaybackTime)
+    }];
+}
+
+- (NSArray<NSString *> *)supportedEvents {
+    return @[
+            @"playbackStateChanged",
+            @"itemPlayingChanged",
+            @"volumeChanged",
+            @"positionChanged",
+    ];
 }
 
 RCT_EXPORT_MODULE()
@@ -663,6 +753,24 @@ RCT_EXPORT_METHOD(seekTo:(double)seconds) {
     NSData *data = UIImagePNGRepresentation(image);
 
     return [data base64EncodedStringWithOptions:NSDataBase64EncodingEndLineWithLineFeed];
+}
+
+RCT_EXPORT_METHOD(setVolume:(CGFloat)volume callback:(RCTResponseSenderBlock)block)
+{
+    NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+    [[MPMusicPlayerController applicationMusicPlayer] setVolume:volume];
+    block(@[[NSNull null]]);
+}
+
+
+RCT_EXPORT_METHOD(getVolume: (RCTResponseSenderBlock)successCallback)
+{
+    NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
+
+    float volume = [[MPMusicPlayerController applicationMusicPlayer] volume];
+    NSArray *f = @[ @(volume) ];
+
+    successCallback(f);
 }
 
 @end

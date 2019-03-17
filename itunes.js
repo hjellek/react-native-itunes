@@ -1,6 +1,6 @@
-var React = require("react-native");
-
-var { RNiTunes } = require("react-native").NativeModules;
+var {React, NativeModules, NativeEventEmitter} = require('react-native');
+var RNiTunes = NativeModules.RNiTunes;
+var RNiTunesEventEmitter = new NativeEventEmitter(RNiTunes);
 
 module.exports = {
   getPlaylists: function(params) {
@@ -121,5 +121,67 @@ module.exports = {
 
   stop: function() {
     RNiTunes.stop();
+  },
+
+  setVolume: function(volume) {
+    return new Promise((resolve, reject) => {
+      if (isNaN(volume)) {
+        reject('To set volume, you need to supply volume as number');
+        return;
+      }
+      RNiTunes.setVolume(volume, (err) => {
+        if (!err) {
+          resolve();
+        } else {
+          reject(err);
+        }
+      });
+    });
+  },
+
+  getVolume: function() {
+    return new Promise((resolve, reject) => {
+      RNiTunes.getVolume((volume) => {
+        resolve(volume);
+      });
+    });
+  },
+
+  addEventListener: function(event: string, func: Function) {
+    RNiTunesEventEmitter.addListener(event, func);
+  },
+
+  removeEventListener: function(event: string, func: Function) {
+    RNiTunesEventEmitter.removeListener(event, func);
+  },
+
+  iTunesEvents: {
+    playbackStateChanged: "playbackStateChanged",
+    itemPlayingChanged: "itemPlayingChanged",
+    volumeChanged: "volumeChanged",
+    positionChanged: "positionChanged",
+  },
+
+  iTunesPlaybackState: {
+    MPMusicPlaybackStateStopped: 0,
+    MPMusicPlaybackStatePlaying: 1,
+    MPMusicPlaybackStatePaused: 2,
+    MPMusicPlaybackStateInterrupted: 3,
+    MPMusicPlaybackStateSeekingForward: 4,
+    MPMusicPlaybackStateSeekingBackward: 5,
+  },
+
+  iTunesRepeatMode: {
+    MPMusicRepeatModeDefault: 0, // the user's preference for repeat mode
+    MPMusicRepeatModeNone: 1,
+    MPMusicRepeatModeOne: 2,
+    MPMusicRepeatModeAll: 3,
+  },
+
+  iTunesShuffleMode: {
+    MPMusicShuffleModeDefault: 0, // the user's preference for shuffle mode
+    MPMusicShuffleModeOff: 1,
+    MPMusicShuffleModeSongs: 2,
+    MPMusicShuffleModeAlbums: 3,
   }
 };
