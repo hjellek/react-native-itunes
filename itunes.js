@@ -183,5 +183,11 @@ module.exports = {
     MPMusicShuffleModeOff: 1,
     MPMusicShuffleModeSongs: 2,
     MPMusicShuffleModeAlbums: 3,
+  },
+
+  iTunesTrackType: {
+    SONG: "",
+    AUDIOBOOK: "audiobooks",
+    PODCAST: "podcasts"
   }
 };

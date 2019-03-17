@@ -1,22 +1,37 @@
 
 export default class iTunes {
-    static getPlaylists(params):Promise;
+    static getArtists():Promise<string[]>;
 
-    static getTracks(params):Promise;
+    static getAlbums():Promise<iTunesTrackItem[]>;
+
+    static getPlaylists(params:{fields?:string[], query?:object}):Promise<iTunesPlaylistItem[]>;
+
+    static getCurrentTrack():Promise<iTunesTrackItem>;
+
+    /**
+     * @deprecated
+     */
+    static getCurrentPlayTime():Promise<number>;
+
+    static getTracks(params:{fields?:string[], query?:object, type?:string}):Promise<iTunesTrackItem[]>;
 
     static pause():void;
 
     static play():void;
 
+    static next():void;
+
+    static previous():void;
+
     static seekTo(position):void;
 
-    static playTrack(trackItem, offset = 0):Promise;
+    static playTrack(trackItem:iTunesTrackItem):Promise;
 
-    static getAudioBooks(params):Promise;
+    static playTracks(trackItems:iTunesTrackItem[]):Promise;
 
-    static setVolume(volume):Promise;
+    static setVolume(volume:number):Promise;
 
-    static getVolume():Promise;
+    static getVolume():Promise<number>;
 
     static addEventListener(event: string, func: Function):void;
 
@@ -29,6 +44,8 @@ export default class iTunes {
     static iTunesRepeatMode:iTunesRepeatMode;
 
     static iTunesShuffleMode:iTunesShuffleMode;
+
+    static iTunesTrackType:iTunesTrackType;
 }
 
 declare interface iTunesEvents
@@ -60,6 +77,13 @@ declare interface iTunesShuffleMode {
     MPMusicShuffleModeOff:number;
     MPMusicShuffleModeSongs:number;
     MPMusicShuffleModeAlbums:number;
+}
+
+declare interface iTunesTrackType
+{
+    SONG:string;
+    AUDIOBOOK:string;
+    PODCAST:string;
 }
 
 type iTunesTrackItem = {
