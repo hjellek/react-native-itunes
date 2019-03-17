@@ -60,7 +60,7 @@
     NSLog(@"%@ %@", NSStringFromClass([self class]), NSStringFromSelector(_cmd));
     MPMediaItem *item = [self.player nowPlayingItem];
     [self sendEventWithName:@"itemPlayingChanged" body:@{
-            @"track": [self audioBookAsJSON:item]
+            @"track": [self mediaItemAsJSON:item]
     }];
 }
 
@@ -500,6 +500,43 @@ RCT_EXPORT_METHOD(getTracks:(NSDictionary *)params successCallback:(RCTResponseS
                 }
                 [songDictionary setValue:[NSString stringWithString:userGrouping] forKey:@"userGrouping"];
             }
+            if ([fields containsObject: @"chapters"]) {
+                NSURL *url = [song valueForProperty: MPMediaItemPropertyAssetURL];
+                NSString *assetUrl = url.absoluteString;
+                if (assetUrl == nil) {
+                    assetUrl = @"";
+                }
+                songDictionary[@"assetUrl"] = [NSString stringWithString:assetUrl];
+
+                NSURL *assetURL = [song valueForProperty:MPMediaItemPropertyAssetURL];
+                AVURLAsset *asset = [AVURLAsset URLAssetWithURL:assetURL options:nil];
+
+                NSArray<AVTimedMetadataGroup *> *chapters = [asset chapterMetadataGroupsBestMatchingPreferredLanguages:NSLocale.preferredLanguages];
+                if(!chapters.count)
+                {
+                    NSArray *locales = [asset availableChapterLocales];
+                    if(locales.count)
+                    {
+                        NSLocale *locale = locales[0];
+                        chapters = [asset chapterMetadataGroupsWithTitleLocale:locale containingItemsWithCommonKeys:[NSArray arrayWithObject:AVMetadataCommonKeyArtwork]];
+                    }
+
+                }
+                NSMutableArray *chaptersToExport = [NSMutableArray array];
+
+                for(id object in chapters)
+                {
+                    CMTimeRange timeRange = [object timeRange];
+                    [chaptersToExport addObject:@{
+                            @"startTime": @(timeRange.start.value / timeRange.start.timescale),
+                            @"duration": @(timeRange.duration.value / timeRange.duration.timescale),
+                    }];
+                }
+
+                songDictionary[@"chapters"] = chaptersToExport;
+
+
+            }
             /*if ([fields containsObject: @"bookmarkTime"]) {
              NSString *bookmarkTime = [song valueForProperty: MPMediaItemPropertyBookmarkTime];
              if (bookmarkTime == nil) {
@@ -772,5 +809,96 @@ RCT_EXPORT_METHOD(getVolume: (RCTResponseSenderBlock)successCallback)
 
     successCallback(f);
 }
+
+-(NSDictionary *)mediaItemAsJSON:(MPMediaItem *)mediaitem
+{
+    NSString *title = [mediaitem valueForProperty: MPMediaItemPropertyTitle];
+    NSString *albumTitle = [mediaitem valueForProperty: MPMediaItemPropertyAlbumTitle];
+    NSString *albumArtist = [mediaitem valueForProperty: MPMediaItemPropertyAlbumArtist];
+    NSString *genre = [mediaitem valueForProperty: MPMediaItemPropertyGenre];
+    NSString *duration = [mediaitem valueForProperty: MPMediaItemPropertyPlaybackDuration];
+    NSString *playCount = [mediaitem valueForProperty: MPMediaItemPropertyPlayCount];
+
+    if (title == nil) {
+        title = @"";
+    }
+    if (albumTitle == nil) {
+        albumTitle = @"";
+    }
+    if (albumArtist == nil) {
+        albumArtist = @"";
+    }
+    if (genre == nil) {
+        genre = @"";
+    }
+    if (duration == nil) {
+        duration = @"0";
+    }
+    if (playCount == nil) {
+        playCount = @"0";
+    }
+
+    NSMutableDictionary *mediaitemDictionary = [NSMutableDictionary dictionary];
+
+    mediaitemDictionary[@"albumTitle"] = albumTitle;
+    mediaitemDictionary[@"albumArtist"] =  albumArtist;
+    mediaitemDictionary[@"duration"] = [duration isKindOfClass:[NSString class]] ? [NSNumber numberWithInt:[duration intValue]] : duration;
+    mediaitemDictionary[@"genre"] = genre;
+    mediaitemDictionary[@"playCount"] = [NSNumber numberWithInt:[playCount intValue]];
+    mediaitemDictionary[@"title"] = title;
+    mediaitemDictionary[@"albumTrackCount"] = [mediaitem valueForProperty:MPMediaItemPropertyAlbumTrackCount];
+    mediaitemDictionary[@"albumTrackNumber"] = [mediaitem valueForProperty:MPMediaItemPropertyAlbumTrackNumber];
+    mediaitemDictionary[@"discCount"] = [mediaitem valueForProperty:MPMediaItemPropertyDiscCount];
+    mediaitemDictionary[@"discNumber"] = [mediaitem valueForProperty:MPMediaItemPropertyDiscNumber];
+
+    MPMediaItemArtwork *artwork = [mediaitem valueForProperty: MPMediaItemPropertyArtwork];
+    if (artwork != nil) {
+        // NSLog(@"artwork %@", artwork);
+        UIImage *image = [artwork imageWithSize:CGSizeMake(100, 100)];
+        // http://www.12qw.ch/2014/12/tooltip-decoding-base64-images-with-chrome-data-url/
+        // http://stackoverflow.com/a/510444/185771
+        NSString *base64 = [NSString stringWithFormat:@"%@%@", @"data:image/jpeg;base64,", [self imageToNSString:image]];
+        mediaitemDictionary[@"artwork"] = base64;
+    } else {
+        mediaitemDictionary[@"artwork"] = @"";
+    }
+
+    NSURL *url = [mediaitem valueForProperty: MPMediaItemPropertyAssetURL];
+    NSString *assetUrl = url.absoluteString;
+    if (assetUrl == nil) {
+        assetUrl = @"";
+    }
+    mediaitemDictionary[@"assetUrl"] = [NSString stringWithString:assetUrl];
+
+    NSURL *assetURL = [mediaitem valueForProperty:MPMediaItemPropertyAssetURL];
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:assetURL options:nil];
+
+    NSArray<AVTimedMetadataGroup *> *chapters = [asset chapterMetadataGroupsBestMatchingPreferredLanguages:NSLocale.preferredLanguages];
+    if(!chapters.count)
+    {
+        NSArray *locales = [asset availableChapterLocales];
+        if(locales.count)
+        {
+            NSLocale *locale = locales[0];
+            chapters = [asset chapterMetadataGroupsWithTitleLocale:locale containingItemsWithCommonKeys:[NSArray arrayWithObject:AVMetadataCommonKeyArtwork]];
+        }
+
+    }
+    NSMutableArray *chaptersToExport = [NSMutableArray array];
+
+    for(id object in chapters)
+    {
+        CMTimeRange timeRange = [object timeRange];
+        [chaptersToExport addObject:@{
+                @"startTime": @(timeRange.start.value / timeRange.start.timescale),
+                @"duration": @(timeRange.duration.value / timeRange.duration.timescale),
+        }];
+    }
+
+    mediaitemDictionary[@"chapters"] = chaptersToExport;
+
+    return mediaitemDictionary;
+}
+
 
 @end
