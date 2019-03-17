@@ -501,13 +501,6 @@ RCT_EXPORT_METHOD(getTracks:(NSDictionary *)params successCallback:(RCTResponseS
                 [songDictionary setValue:[NSString stringWithString:userGrouping] forKey:@"userGrouping"];
             }
             if ([fields containsObject: @"chapters"]) {
-                NSURL *url = [song valueForProperty: MPMediaItemPropertyAssetURL];
-                NSString *assetUrl = url.absoluteString;
-                if (assetUrl == nil) {
-                    assetUrl = @"";
-                }
-                songDictionary[@"assetUrl"] = [NSString stringWithString:assetUrl];
-
                 NSURL *assetURL = [song valueForProperty:MPMediaItemPropertyAssetURL];
                 AVURLAsset *asset = [AVURLAsset URLAssetWithURL:assetURL options:nil];
 
@@ -524,18 +517,15 @@ RCT_EXPORT_METHOD(getTracks:(NSDictionary *)params successCallback:(RCTResponseS
                 }
                 NSMutableArray *chaptersToExport = [NSMutableArray array];
 
-                for(id object in chapters)
+                for(id chapter in chapters)
                 {
-                    CMTimeRange timeRange = [object timeRange];
+                    CMTimeRange timeRange = [chapter timeRange];
                     [chaptersToExport addObject:@{
                             @"startTime": @(timeRange.start.value / timeRange.start.timescale),
                             @"duration": @(timeRange.duration.value / timeRange.duration.timescale),
                     }];
                 }
-
-                songDictionary[@"chapters"] = chaptersToExport;
-
-
+                [songDictionary setValue:chaptersToExport forKey:@"chapters"];
             }
             /*if ([fields containsObject: @"bookmarkTime"]) {
              NSString *bookmarkTime = [song valueForProperty: MPMediaItemPropertyBookmarkTime];
